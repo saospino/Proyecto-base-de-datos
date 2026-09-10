@@ -2,7 +2,7 @@ Sistema de Gestión de Biblioteca Universitaria
 
 Proyecto Integrador — Diseño de Bases de Datos Facultad — Gestión de préstamos, devoluciones, reservas y multas de material bibliográfico.
 
- Integrantes
+Integrantes:
 Reinaldo Padilla Pedroza
 Dair Quintero Ortiz
 Sebastián Ospino Florez
