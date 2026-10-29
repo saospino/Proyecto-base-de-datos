@@ -20,7 +20,7 @@ del grupo. El asistente se usó como apoyo puntual en tareas sencillas:
 ## Cómo se verificó
 
 - Todas las migraciones se ejecutaron en orden sobre una base vacía en
-  PostgreSQL y corrieron sin errores (`ejecutar_todo.ps1`).
+  PostgreSQL y corrieron sin errores.
 - Los resultados de las consultas se compararon con un conteo a mano sobre la
   semilla (por ejemplo, préstamos de Ingeniería de Sistemas = 5 + 4 = 9).
 - Cada restricción se probó con un dato inválido (`pruebas/pruebas_restricciones.sql`)
