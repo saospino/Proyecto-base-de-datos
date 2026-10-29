@@ -1,0 +1,117 @@
+BEGIN;
+BEGIN
+DROP INDEX IF EXISTS idx_prestamos_fecha_prestamo;
+DROP INDEX
+INSERT INTO prestamos (id_libro, num_ejemplar, id_socio, id_bibliotecario,
+                       fecha_prestamo, fecha_devolucion_esperada, fecha_devolucion_real)
+SELECT e.id_libro, e.num_ejemplar,
+       1 + (g % 10), 1 + (g % 4),
+       DATE '2016-07-01' + (g % 3650),
+       DATE '2016-07-01' + (g % 3650) + 15,
+       DATE '2016-07-01' + (g % 3650) + 10 + (g % 8)
+FROM generate_series(1, 200000) AS g
+JOIN LATERAL (SELECT id_libro, num_ejemplar FROM ejemplares
+              ORDER BY id_libro, num_ejemplar
+              OFFSET (g % 18) LIMIT 1) e ON true;
+INSERT 0 200000
+ANALYZE prestamos;
+ANALYZE
+EXPLAIN (ANALYZE, BUFFERS, COSTS OFF)
+SELECT id_bibliotecario, COUNT(*) AS prestamos
+FROM prestamos
+WHERE fecha_prestamo >= DATE '2026-03-01'
+  AND fecha_prestamo <  DATE '2026-04-01'
+GROUP BY id_bibliotecario;
+                                                      QUERY PLAN                                                      
+----------------------------------------------------------------------------------------------------------------------
+ Finalize GroupAggregate (actual time=44.665..51.818 rows=4.00 loops=1)
+   Group Key: id_bibliotecario
+   Buffers: shared hit=1478
+   ->  Gather Merge (actual time=44.651..51.800 rows=4.00 loops=1)
+         Workers Planned: 1
+         Workers Launched: 1
+         Buffers: shared hit=1478
+         ->  Sort (actual time=8.844..8.845 rows=2.00 loops=2)
+               Sort Key: id_bibliotecario
+               Sort Method: quicksort  Memory: 25kB
+               Buffers: shared hit=1478
+               Worker 0:  Sort Method: quicksort  Memory: 25kB
+               ->  Partial HashAggregate (actual time=8.814..8.817 rows=2.00 loops=2)
+                     Group Key: id_bibliotecario
+                     Batches: 1  Memory Usage: 32kB
+                     Buffers: shared hit=1471
+                     Worker 0:  Batches: 1  Memory Usage: 32kB
+                     ->  Parallel Seq Scan on prestamos (actual time=0.115..8.681 rows=837.00 loops=2)
+                           Filter: ((fecha_prestamo >= '2026-03-01'::date) AND (fecha_prestamo < '2026-04-01'::date))
+                           Rows Removed by Filter: 99174
+                           Buffers: shared hit=1471
+ Planning:
+   Buffers: shared hit=59
+ Planning Time: 5.441 ms
+ Execution Time: 51.930 ms
+(25 filas)
+
+CREATE INDEX idx_prestamos_fecha_prestamo ON prestamos (fecha_prestamo);
+CREATE INDEX
+ANALYZE prestamos;
+ANALYZE
+EXPLAIN (ANALYZE, BUFFERS, COSTS OFF)
+SELECT id_bibliotecario, COUNT(*) AS prestamos
+FROM prestamos
+WHERE fecha_prestamo >= DATE '2026-03-01'
+  AND fecha_prestamo <  DATE '2026-04-01'
+GROUP BY id_bibliotecario;
+                                                  QUERY PLAN                                                   
+---------------------------------------------------------------------------------------------------------------
+ HashAggregate (actual time=0.653..0.655 rows=4.00 loops=1)
+   Group Key: id_bibliotecario
+   Batches: 1  Memory Usage: 32kB
+   Buffers: shared hit=67 read=3
+   ->  Bitmap Heap Scan on prestamos (actual time=0.124..0.451 rows=1674.00 loops=1)
+         Recheck Cond: ((fecha_prestamo >= '2026-03-01'::date) AND (fecha_prestamo < '2026-04-01'::date))
+         Heap Blocks: exact=67
+         Buffers: shared hit=67 read=3
+         ->  Bitmap Index Scan on idx_prestamos_fecha_prestamo (actual time=0.089..0.089 rows=1674.00 loops=1)
+               Index Cond: ((fecha_prestamo >= '2026-03-01'::date) AND (fecha_prestamo < '2026-04-01'::date))
+               Index Searches: 1
+               Buffers: shared read=3
+ Planning:
+   Buffers: shared hit=28 read=1
+ Planning Time: 2.634 ms
+ Execution Time: 0.703 ms
+(16 filas)
+
+SELECT id_bibliotecario, COUNT(*) AS prestamos
+FROM prestamos
+WHERE fecha_prestamo >= DATE '2026-03-01'
+  AND fecha_prestamo <  DATE '2026-04-01'
+GROUP BY id_bibliotecario
+ORDER BY id_bibliotecario;
+ id_bibliotecario | prestamos 
+------------------+-----------
+                1 |       432
+                2 |       405
+                3 |       432
+                4 |       405
+(4 filas)
+
+EXPLAIN (ANALYZE, COSTS OFF)
+SELECT id_prestamo, id_socio, fecha_devolucion_esperada
+FROM prestamos
+WHERE fecha_devolucion_real IS NULL
+  AND fecha_devolucion_esperada < DATE '2026-10-28';
+                                               QUERY PLAN                                                
+---------------------------------------------------------------------------------------------------------
+ Index Scan using uq_prestamos_ejemplar_activo on prestamos (actual time=0.010..0.015 rows=3.00 loops=1)
+   Filter: (fecha_devolucion_esperada < '2026-10-28'::date)
+   Rows Removed by Filter: 3
+   Index Searches: 1
+   Buffers: shared hit=3
+ Planning:
+   Buffers: shared hit=18
+ Planning Time: 0.090 ms
+ Execution Time: 0.023 ms
+(9 filas)
+
+ROLLBACK;
+ROLLBACK
